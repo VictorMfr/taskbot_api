@@ -20,11 +20,13 @@ const db = mysql.createPool({
     database: process.env.DB_NAME || "taskbot",
 });
 
-app.use(userRoutes(db, JWT_SECRET));
-
 app.get("/", (req, res) => {
     res.send("Hello World");
 });
+
+app.use(userRoutes(db, JWT_SECRET));
+
+
 
 if (process.env.NODE_ENV !== "production") {
     app.listen(PORT, () => {
