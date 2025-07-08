@@ -1,36 +1,31 @@
 import express from "express";
 import mysql from "mysql2/promise";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import bodyParser from "body-parser";
+import type { Request, Response, NextFunction } from "express";
+import userRoutes from "./routes/user";
+
 const app = express();
+app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
+
+// Configuración de conexión MySQL
+const db = mysql.createPool({
+    host: process.env.DB_HOST || "localhost",
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASS || "",
+    database: process.env.DB_NAME || "taskbot",
+});
+
+app.use("/user", userRoutes(db, JWT_SECRET));
 
 app.get("/", (req, res) => {
     res.send("Hello World");
 });
 
-app.get("/test-db", async (req, res) => {
-    try {
-        const connection = await mysql.createConnection({
-            host: process.env.DB_HOST || "",
-            port: parseInt(process.env.DB_PORT || "3306"),
-            user: process.env.DB_USER || "",
-            password: process.env.DB_PASSWORD || "",
-            database: process.env.DB_NAME || ""
-        });
-        await connection.ping();
-        await connection.end();
-        res.send("Database connection successful");
-    } catch (error) {
-        console.log("Database connection error:", error);
-        if (error instanceof Error) {
-            res.status(500).send({ message: error.message, stack: error.stack });
-        } else {
-            res.status(500).send({ message: "Unknown error", error });
-        }
-    }
-});
-
-// Solo para desarrollo local
 if (process.env.NODE_ENV !== "production") {
     app.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}`);
