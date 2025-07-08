@@ -28,19 +28,27 @@ export default function userRoutes(db: any, JWT_SECRET: string) {
     router.post("/register", async (req: Request, res: Response) => {
         const { username, email, password } = req.body;
         if (!username || !email || !password) {
-            res.status(400).json({ message: "Todos los campos son requeridos" });
-            return;
+            return res.status(400).json({ success: false, message: "Todos los campos son requeridos", data: null });
         }
         try {
             const hashedPassword = await bcrypt.hash(password, 10);
-            await db.query(
+            const [result] = await db.query(
                 "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
                 [username, email, hashedPassword]
             );
-            res.status(201).json({ message: "Usuario registrado" });
+            // Obtener el usuario recién creado
+            const [rows] = await db.query("SELECT id, username, email, user_type FROM users WHERE id = ?", [result.insertId]) as [any[], any];
+            const user = rows[0];
+            // Generar token
+            const token = jwt.sign({ id: user.id, email: user.email, username: user.username }, JWT_SECRET, { expiresIn: "1d" });
+            return res.status(201).json({
+                success: true,
+                message: "Usuario registrado",
+                data: { token, user }
+            });
         } catch (err) {
             console.log("Error en registro:", err);
-            res.status(500).json({ message: "Error al registrar usuario" });
+            return res.status(500).json({ success: false, message: "Error al registrar usuario", data: null });
         }
     });
 
@@ -48,26 +56,29 @@ export default function userRoutes(db: any, JWT_SECRET: string) {
     router.post("/login", async (req: Request, res: Response) => {
         const { email, password } = req.body;
         if (!email || !password) {
-            res.status(400).json({ message: "Email y contraseña requeridos" });
-            return;
+            return res.status(400).json({ success: false, message: "Email y contraseña requeridos", data: null });
         }
         try {
-            const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [email]) as [any[], any];
+            const [rows] = await db.query("SELECT id, username, email, password, user_type FROM users WHERE email = ?", [email]) as [any[], any];
             const user = rows[0];
             if (!user) {
-                res.status(404).json({ message: "Usuario no encontrado" });
-                return;
+                return res.status(404).json({ success: false, message: "Usuario no encontrado", data: null });
             }
             const valid = await bcrypt.compare(password, user.password);
             if (!valid) {
-                res.status(401).json({ message: "Contraseña incorrecta" });
-                return;
+                return res.status(401).json({ success: false, message: "Contraseña incorrecta", data: null });
             }
             const token = jwt.sign({ id: user.id, email: user.email, username: user.username }, JWT_SECRET, { expiresIn: "1d" });
-            res.json({ token });
+            // No enviar password al cliente
+            delete user.password;
+            return res.json({
+                success: true,
+                message: "Login exitoso",
+                data: { token, user }
+            });
         } catch (err) {
             console.log("Error en login:", err);
-            res.status(500).json({ message: "Error al iniciar sesión" });
+            return res.status(500).json({ success: false, message: "Error al iniciar sesión", data: null });
         }
     });
 
@@ -75,10 +86,10 @@ export default function userRoutes(db: any, JWT_SECRET: string) {
     router.get("/", authenticateToken, async (req: Request, res: Response) => {
         try {
             const [rows] = await db.query("SELECT id, username, email, user_type, is_active, created_at, updated_at FROM users") as [any[], any];
-            res.json(rows);
+            return res.json({ success: true, message: "Usuarios obtenidos", data: rows });
         } catch (err) {
             console.log("Error al obtener usuarios:", err);
-            res.status(500).json({ message: "Error al obtener usuarios" });
+            return res.status(500).json({ success: false, message: "Error al obtener usuarios", data: null });
         }
     });
 
@@ -87,13 +98,12 @@ export default function userRoutes(db: any, JWT_SECRET: string) {
         try {
             const [rows] = await db.query("SELECT id, username, email, user_type, is_active, created_at, updated_at FROM users WHERE id = ?", [req.params.id]) as [any[], any];
             if (rows.length === 0) {
-                res.status(404).json({ message: "Usuario no encontrado" });
-                return;
+                return res.status(404).json({ success: false, message: "Usuario no encontrado", data: null });
             }
-            res.json(rows[0]);
+            return res.json({ success: true, message: "Usuario obtenido", data: rows[0] });
         } catch (err) {
             console.log("Error al obtener usuario:", err);
-            res.status(500).json({ message: "Error al obtener usuario" });
+            return res.status(500).json({ success: false, message: "Error al obtener usuario", data: null });
         }
     });
 
@@ -109,15 +119,14 @@ export default function userRoutes(db: any, JWT_SECRET: string) {
             if (user_type) { updateFields.push("user_type = ?"); values.push(user_type); }
             if (typeof is_active === "boolean") { updateFields.push("is_active = ?"); values.push(is_active); }
             if (updateFields.length === 0) {
-                res.status(400).json({ message: "Nada para actualizar" });
-                return;
+                return res.status(400).json({ success: false, message: "Nada para actualizar", data: null });
             }
             values.push(req.params.id);
             await db.query(`UPDATE users SET ${updateFields.join(", ")} WHERE id = ?`, values);
-            res.json({ message: "Usuario actualizado" });
+            return res.json({ success: true, message: "Usuario actualizado", data: null });
         } catch (err) {
             console.log("Error al actualizar usuario:", err);
-            res.status(500).json({ message: "Error al actualizar usuario" });
+            return res.status(500).json({ success: false, message: "Error al actualizar usuario", data: null });
         }
     });
 
@@ -125,10 +134,10 @@ export default function userRoutes(db: any, JWT_SECRET: string) {
     router.delete("/:id", authenticateToken, async (req: Request, res: Response) => {
         try {
             await db.query("DELETE FROM users WHERE id = ?", [req.params.id]);
-            res.json({ message: "Usuario eliminado" });
+            return res.json({ success: true, message: "Usuario eliminado", data: null });
         } catch (err) {
             console.log("Error al eliminar usuario:", err);
-            res.status(500).json({ message: "Error al eliminar usuario" });
+            return res.status(500).json({ success: false, message: "Error al eliminar usuario", data: null });
         }
     });
 
