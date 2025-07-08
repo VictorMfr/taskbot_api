@@ -1,5 +1,5 @@
 import express from "express";
-import { Sequelize } from "sequelize";
+import mysql from "mysql2/promise";
 const app = express();
 
 const PORT = process.env.PORT || 3000;
@@ -10,16 +10,15 @@ app.get("/", (req, res) => {
 
 app.get("/test-db", async (req, res) => {
     try {
-        const db = new Sequelize({
-            host: process.env.DB_HOST as string || "",
-            port: parseInt(process.env.DB_PORT as string) || 3306,
-            username: process.env.DB_USER as string || "",
-            password: process.env.DB_PASSWORD as string || "",
-            database: process.env.DB_NAME as string || "",
-            dialect: "mysql"
+        const connection = await mysql.createConnection({
+            host: process.env.DB_HOST || "",
+            port: parseInt(process.env.DB_PORT || "3306"),
+            user: process.env.DB_USER || "",
+            password: process.env.DB_PASSWORD || "",
+            database: process.env.DB_NAME || ""
         });
-
-        await db.authenticate();
+        await connection.ping();
+        await connection.end();
         res.send("Database connection successful");
     } catch (error) {
         console.log("Database connection error:", error);
