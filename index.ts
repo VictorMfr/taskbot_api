@@ -22,7 +22,7 @@ app.get("/test-db", async (req, res) => {
         await db.authenticate();
         res.send("Database connection successful");
     } catch (error) {
-        res.status(500).send("Database connection failed");
+        res.status(500).send(error);
     }
 });
 
