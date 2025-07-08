@@ -10,17 +10,16 @@ app.get("/", (req, res) => {
 
 // Test database connection route
 app.get("/test-db", async (req, res) => {
-
-    const db = new Sequelize({
-        host: process.env.DB_HOST as string || "",
-        port: parseInt(process.env.DB_PORT as string) || 3306,
-        username: process.env.DB_USER as string || "",
-        password: process.env.DB_PASSWORD as string || "",
-        database: process.env.DB_NAME as string || "",
-        dialect: "mysql"
-    });
-
     try {
+        const db = new Sequelize({
+            host: process.env.DB_HOST as string || "",
+            port: parseInt(process.env.DB_PORT as string) || 3306,
+            username: process.env.DB_USER as string || "",
+            password: process.env.DB_PASSWORD as string || "",
+            database: process.env.DB_NAME as string || "",
+            dialect: "mysql"
+        });
+
         await db.authenticate();
         res.send("Database connection successful");
     } catch (error) {
