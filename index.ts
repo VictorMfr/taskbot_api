@@ -22,7 +22,12 @@ app.get("/test-db", async (req, res) => {
         await db.authenticate();
         res.send("Database connection successful");
     } catch (error) {
-        res.status(500).send(error);
+        console.log("Database connection error:", error);
+        if (error instanceof Error) {
+            res.status(500).send({ message: error.message, stack: error.stack });
+        } else {
+            res.status(500).send({ message: "Unknown error", error });
+        }
     }
 });
 
