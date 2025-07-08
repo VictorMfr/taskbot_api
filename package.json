@@ -18,6 +18,7 @@
     "typescript": "^5.8.3"
   },
   "devDependencies": {
-    "@types/express": "^5.0.3"
+    "@types/express": "^5.0.3",
+    "@types/sequelize": "^4.28.20"
   }
 }
