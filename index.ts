@@ -8,7 +8,6 @@ app.get("/", (req, res) => {
     res.send("Hello World");
 });
 
-// Test database connection route
 app.get("/test-db", async (req, res) => {
     try {
         const db = new Sequelize({
@@ -27,6 +26,12 @@ app.get("/test-db", async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+// Solo para desarrollo local
+if (process.env.NODE_ENV !== "production") {
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+    });
+}
+
+// Exporta el handler para Vercel
+export default app;
