@@ -12,13 +12,26 @@ export default function taskRoutes(db: any, JWT_SECRET: string) {
             res.status(401).json({ success: false, message: "Token requerido", data: null });
             return;
         }
-        jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+        jwt.verify(token, JWT_SECRET, async (err: any, decoded: any) => {
             if (err) {
                 res.status(403).json({ success: false, message: "Token inválido", data: null });
                 return;
             }
-            (req as any).user = user;
-            next();
+            
+            try {
+                // Verificar que el usuario existe en la base de datos
+                const [users] = await db.query("SELECT * FROM users WHERE id = ?", [decoded.id]) as [any[], any];
+                if (users.length === 0) {
+                    res.status(404).json({ success: false, message: "Usuario no encontrado", data: null });
+                    return;
+                }
+                
+                (req as any).user = users[0];
+                next();
+            } catch (dbErr) {
+                console.log("Error al verificar usuario:", dbErr);
+                res.status(500).json({ success: false, message: "Error interno del servidor", data: null });
+            }
         });
     }
 
