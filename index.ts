@@ -1,5 +1,5 @@
 import express from "express";
-import sequelize from "sequelize/types/sequelize";
+import { Sequelize } from "sequelize";
 const app = express();
 
 const PORT = process.env.PORT || 3000;
@@ -11,15 +11,14 @@ app.get("/", (req, res) => {
 // Test database connection route
 app.get("/test-db", async (req, res) => {
 
-    const db = new sequelize(
-        process.env.DB_NAME || "",
-        process.env.DB_USER || "",
-        process.env.DB_PASSWORD || "",
-        {
-            host: process.env.DB_HOST || "",
-            dialect: "mysql"
-        }
-    );
+    const db = new Sequelize({
+        host: process.env.DB_HOST as string || "",
+        port: parseInt(process.env.DB_PORT as string) || 3306,
+        username: process.env.DB_USER as string || "",
+        password: process.env.DB_PASSWORD as string || "",
+        database: process.env.DB_NAME as string || "",
+        dialect: "mysql"
+    });
 
     try {
         await db.authenticate();
