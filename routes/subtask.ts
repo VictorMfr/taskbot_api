@@ -36,24 +36,12 @@ export default function subtaskRoutes(db: any, JWT_SECRET: string) {
         });
     }
 
-    // Obtener todas las subtareas
-    router.get("/subtask", authenticateToken, async (req: Request, res: Response) => {
-        try {
-            console.log("Obteniendo todas las subtareas");
-            const [rows] = await db.query("SELECT * FROM subtasks") as [any[], any];
-            console.log("Subtareas obtenidas:", rows.length);
-            res.json({ success: true, message: "Subtareas obtenidas", data: rows });
-        } catch (err) {
-            console.log("Error al obtener subtareas:", err);
-            res.status(500).json({ success: false, message: "Error al obtener subtareas", data: null });
-        }
-    });
-
     // Obtener subtareas por task_id
-    router.get("/subtask/task/:taskId", authenticateToken, async (req: Request, res: Response) => {
+    router.get("/task/:taskId/subtask", authenticateToken, async (req: Request, res: Response) => {
         try {
-            console.log("Obteniendo subtareas para task_id:", req.params.taskId);
-            const [rows] = await db.query("SELECT * FROM subtasks WHERE task_id = ?", [req.params.taskId]) as [any[], any];
+            const taskId = req.params.taskId;
+            console.log("Obteniendo subtareas para task_id:", taskId);
+            const [rows] = await db.query("SELECT * FROM subtasks WHERE task_id = ?", [taskId]) as [any[], any];
             console.log("Subtareas encontradas:", rows.length);
             res.json({ success: true, message: "Subtareas obtenidas", data: rows });
         } catch (err) {
@@ -80,19 +68,20 @@ export default function subtaskRoutes(db: any, JWT_SECRET: string) {
     });
 
     // Crear subtarea
-    router.post("/subtask", authenticateToken, async (req: Request, res: Response) => {
-        const { task_id, created_by, name, description, priority, due_date, status, is_ai_managed } = req.body;
+    router.post("/task/:taskId/subtask", authenticateToken, async (req: Request, res: Response) => {
+        const { created_by, name, description, priority, due_date, status, is_ai_managed } = req.body;
+        const taskId = req.params.taskId;
         
-        console.log("Creando subtarea con datos:", { task_id, created_by, name, description, priority, due_date, status, is_ai_managed });
+        console.log("Creando subtarea con datos:", { taskId, created_by, name, description, priority, due_date, status, is_ai_managed });
         
-        if (!task_id || !created_by || !name) {
-            res.status(400).json({ success: false, message: "Faltan campos obligatorios (task_id, created_by, name)", data: null });
+        if (!created_by || !name) {
+            res.status(400).json({ success: false, message: "Faltan campos obligatorios (created_by, name)", data: null });
             return;
         }
 
         try {
             // Verificar que la tarea padre existe
-            const [taskRows] = await db.query("SELECT * FROM tasks WHERE id = ?", [task_id]) as [any[], any];
+            const [taskRows] = await db.query("SELECT * FROM tasks WHERE id = ?", [taskId]) as [any[], any];
             if (taskRows.length === 0) {
                 res.status(404).json({ success: false, message: "Tarea padre no encontrada", data: null });
                 return;
@@ -100,7 +89,7 @@ export default function subtaskRoutes(db: any, JWT_SECRET: string) {
 
             const [result] = await db.query(
                 "INSERT INTO subtasks (task_id, created_by, name, description, priority, due_date, status, is_ai_managed) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                [task_id, created_by, name, description, priority, due_date, status, is_ai_managed]
+                [taskId, created_by, name, description, priority, due_date, status, is_ai_managed]
             );
             
             const [rows] = await db.query("SELECT * FROM subtasks WHERE id = ?", [result.insertId]) as [any[], any];
@@ -158,32 +147,6 @@ export default function subtaskRoutes(db: any, JWT_SECRET: string) {
         }
     });
 
-    // Obtener subtareas completadas
-    router.get("/subtask/completed", authenticateToken, async (req: Request, res: Response) => {
-        try {
-            console.log("Obteniendo subtareas completadas");
-            const [rows] = await db.query("SELECT * FROM subtasks WHERE status = 'completed'") as [any[], any];
-            console.log("Subtareas completadas encontradas:", rows.length);
-            res.json({ success: true, message: "Subtareas completadas obtenidas", data: rows });
-        } catch (err) {
-            console.log("Error al obtener subtareas completadas:", err);
-            res.status(500).json({ success: false, message: "Error al obtener subtareas completadas", data: null });
-        }
-    });
-
-    // Obtener subtareas pendientes
-    router.get("/subtask/pending", authenticateToken, async (req: Request, res: Response) => {
-        try {
-            console.log("Obteniendo subtareas pendientes");
-            const [rows] = await db.query("SELECT * FROM subtasks WHERE status = 'pending'") as [any[], any];
-            console.log("Subtareas pendientes encontradas:", rows.length);
-            res.json({ success: true, message: "Subtareas pendientes obtenidas", data: rows });
-        } catch (err) {
-            console.log("Error al obtener subtareas pendientes:", err);
-            res.status(500).json({ success: false, message: "Error al obtener subtareas pendientes", data: null });
-        }
-    });
-
     // Cambiar estado de subtarea
     router.patch("/subtask/:id/status", authenticateToken, async (req: Request, res: Response) => {
         const { status } = req.body;
@@ -203,6 +166,48 @@ export default function subtaskRoutes(db: any, JWT_SECRET: string) {
         } catch (err) {
             console.log("Error al actualizar estado de subtarea:", err);
             res.status(500).json({ success: false, message: "Error al actualizar estado de subtarea", data: null });
+        }
+    });
+
+    // Obtener subtareas completadas por tarea
+    router.get("/task/:taskId/subtask/completed", authenticateToken, async (req: Request, res: Response) => {
+        try {
+            const taskId = req.params.taskId;
+            console.log("Obteniendo subtareas completadas para task_id:", taskId);
+            const [rows] = await db.query("SELECT * FROM subtasks WHERE task_id = ? AND status = 'completed'", [taskId]) as [any[], any];
+            console.log("Subtareas completadas encontradas:", rows.length);
+            res.json({ success: true, message: "Subtareas completadas obtenidas", data: rows });
+        } catch (err) {
+            console.log("Error al obtener subtareas completadas:", err);
+            res.status(500).json({ success: false, message: "Error al obtener subtareas completadas", data: null });
+        }
+    });
+
+    // Obtener subtareas pendientes por tarea
+    router.get("/task/:taskId/subtask/pending", authenticateToken, async (req: Request, res: Response) => {
+        try {
+            const taskId = req.params.taskId;
+            console.log("Obteniendo subtareas pendientes para task_id:", taskId);
+            const [rows] = await db.query("SELECT * FROM subtasks WHERE task_id = ? AND status = 'pending'", [taskId]) as [any[], any];
+            console.log("Subtareas pendientes encontradas:", rows.length);
+            res.json({ success: true, message: "Subtareas pendientes obtenidas", data: rows });
+        } catch (err) {
+            console.log("Error al obtener subtareas pendientes:", err);
+            res.status(500).json({ success: false, message: "Error al obtener subtareas pendientes", data: null });
+        }
+    });
+
+    // Obtener subtareas en progreso por tarea
+    router.get("/task/:taskId/subtask/in-progress", authenticateToken, async (req: Request, res: Response) => {
+        try {
+            const taskId = req.params.taskId;
+            console.log("Obteniendo subtareas en progreso para task_id:", taskId);
+            const [rows] = await db.query("SELECT * FROM subtasks WHERE task_id = ? AND status = 'in_progress'", [taskId]) as [any[], any];
+            console.log("Subtareas en progreso encontradas:", rows.length);
+            res.json({ success: true, message: "Subtareas en progreso obtenidas", data: rows });
+        } catch (err) {
+            console.log("Error al obtener subtareas en progreso:", err);
+            res.status(500).json({ success: false, message: "Error al obtener subtareas en progreso", data: null });
         }
     });
 

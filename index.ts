@@ -11,6 +11,12 @@ import subtaskRoutes from "./routes/subtask";
 const app = express();
 app.use(bodyParser.json());
 
+// Middleware para loggear todas las peticiones
+app.use((req, res, next) => {
+    console.log(`🌐 [SERVER] ${req.method} ${req.url}`);
+    next();
+});
+
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
 
@@ -27,8 +33,14 @@ app.get("/", (req, res) => {
 });
 
 app.use(userRoutes(db, JWT_SECRET));
-app.use(taskRoutes(db, JWT_SECRET));
-app.use(subtaskRoutes(db, JWT_SECRET));
+app.use(subtaskRoutes(db, JWT_SECRET)); // Rutas de subtareas primero (más específicas)
+app.use(taskRoutes(db, JWT_SECRET)); // Rutas de tareas después (más generales)
+
+// Log para debuggear las rutas registradas
+console.log('🔧 [SERVER] Rutas registradas:');
+console.log('  - User routes: /register, /login, /auth/profile');
+console.log('  - Subtask routes: /task/:taskId/subtask, /subtask/* (primero)');
+console.log('  - Task routes: /task/* (después)');
 
 
 
