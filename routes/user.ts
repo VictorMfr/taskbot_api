@@ -93,7 +93,7 @@ export default function userRoutes(db: any, JWT_SECRET: string) {
     });
 
     // Obtener todos los usuarios (protegido)
-    router.get("/", authenticateToken, async (req: Request, res: Response) => {
+    router.get("/user", authenticateToken, async (req: Request, res: Response) => {
         try {
             const [rows] = await db.query("SELECT id, username, email, user_type, is_active, created_at, updated_at FROM users") as [any[], any];
             res.json({ success: true, message: "Usuarios obtenidos", data: rows });
@@ -104,7 +104,7 @@ export default function userRoutes(db: any, JWT_SECRET: string) {
     });
 
     // Obtener usuario por ID (protegido)
-    router.get("/:id", authenticateToken, async (req: Request, res: Response) => {
+    router.get("user/:id", authenticateToken, async (req: Request, res: Response) => {
         try {
             const [rows] = await db.query("SELECT id, username, email, user_type, is_active, created_at, updated_at FROM users WHERE id = ?", [req.params.id]) as [any[], any];
             if (rows.length === 0) {
@@ -119,7 +119,7 @@ export default function userRoutes(db: any, JWT_SECRET: string) {
     });
 
     // Actualizar usuario (protegido)
-    router.put("/:id", authenticateToken, async (req: Request, res: Response) => {
+    router.put("user/:id", authenticateToken, async (req: Request, res: Response) => {
         const { username, email, password, user_type, is_active } = req.body;
         try {
             let updateFields = [];
@@ -143,7 +143,7 @@ export default function userRoutes(db: any, JWT_SECRET: string) {
     });
 
     // Eliminar usuario (protegido)
-    router.delete("/:id", authenticateToken, async (req: Request, res: Response) => {
+    router.delete("user/:id", authenticateToken, async (req: Request, res: Response) => {
         try {
             await db.query("DELETE FROM users WHERE id = ?", [req.params.id]);
             res.json({ success: true, message: "Usuario eliminado", data: null });

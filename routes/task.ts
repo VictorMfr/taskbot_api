@@ -37,7 +37,7 @@ export default function taskRoutes(db: any, JWT_SECRET: string) {
     }
 
     // Obtener todas las tareas
-    router.get("/tasks", authenticateToken, async (req: Request, res: Response) => {
+    router.get("/task", authenticateToken, async (req: Request, res: Response) => {
         try {
             const [rows] = await db.query("SELECT * FROM tasks") as [any[], any];
             res.json({ success: true, message: "Tareas obtenidas", data: rows });
@@ -48,7 +48,7 @@ export default function taskRoutes(db: any, JWT_SECRET: string) {
     });
 
     // Obtener tarea por ID
-    router.get("/tasks/:id", authenticateToken, async (req: Request, res: Response) => {
+    router.get("/task/:id", authenticateToken, async (req: Request, res: Response) => {
         try {
             const [rows] = await db.query("SELECT * FROM tasks WHERE id = ?", [req.params.id]) as [any[], any];
             if (rows.length === 0) {
@@ -63,7 +63,7 @@ export default function taskRoutes(db: any, JWT_SECRET: string) {
     });
 
     // Crear tarea
-    router.post("/tasks", authenticateToken, async (req: Request, res: Response) => {
+    router.post("/task", authenticateToken, async (req: Request, res: Response) => {
         const { user_id, created_by, name, description, priority, due_date, status, is_ai_managed } = req.body;
         if (!user_id || !created_by || !name) {
             res.status(400).json({ success: false, message: "Faltan campos obligatorios", data: null });
@@ -83,7 +83,7 @@ export default function taskRoutes(db: any, JWT_SECRET: string) {
     });
 
     // Actualizar tarea
-    router.put("/tasks/:id", authenticateToken, async (req: Request, res: Response) => {
+    router.put("/task/:id", authenticateToken, async (req: Request, res: Response) => {
         const { name, description, priority, due_date, status, is_ai_managed } = req.body;
         try {
             let updateFields = [];
@@ -109,7 +109,7 @@ export default function taskRoutes(db: any, JWT_SECRET: string) {
     });
 
     // Eliminar tarea
-    router.delete("/tasks/:id", authenticateToken, async (req: Request, res: Response) => {
+    router.delete("/task/:id", authenticateToken, async (req: Request, res: Response) => {
         try {
             await db.query("DELETE FROM tasks WHERE id = ?", [req.params.id]);
             res.json({ success: true, message: "Tarea eliminada", data: null });
