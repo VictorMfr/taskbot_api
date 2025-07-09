@@ -6,6 +6,7 @@ import bodyParser from "body-parser";
 import type { Request, Response, NextFunction } from "express";
 import userRoutes from "./routes/user";
 import taskRoutes from "./routes/task";
+import subtaskRoutes from "./routes/subtask";
 
 const app = express();
 app.use(bodyParser.json());
@@ -27,6 +28,7 @@ app.get("/", (req, res) => {
 
 app.use(userRoutes(db, JWT_SECRET));
 app.use(taskRoutes(db, JWT_SECRET));
+app.use(subtaskRoutes(db, JWT_SECRET));
 
 
 
