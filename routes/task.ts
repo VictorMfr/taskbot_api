@@ -19,6 +19,7 @@ export default function taskRoutes(db: any, JWT_SECRET: string) {
             }
             
             try {
+                console.log('DEBUG AUTH: Buscando usuario con id:', decoded.id, 'en base de datos:', process.env.DB_NAME, process.env.DB_HOST);
                 // Verificar que el usuario existe en la base de datos
                 const [users] = await db.query("SELECT * FROM users WHERE id = ?", [decoded.id]) as [any[], any];
                 if (users.length === 0) {
