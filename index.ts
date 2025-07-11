@@ -38,7 +38,7 @@ app.use(taskRoutes(db, JWT_SECRET)); // Rutas de tareas después (más generales
 
 // Log para debuggear las rutas registradas
 console.log('🔧 [SERVER] Rutas registradas:');
-console.log('  - User routes: /register, /login, /auth/profile');
+console.log('  - User routes: /register, /login, /auth');
 console.log('  - Subtask routes: /task/:taskId/subtask, /subtask/* (primero)');
 console.log('  - Task routes: /task/* (después)');
 
