@@ -278,4 +278,82 @@ const handler = createMcpHandler(
 // Inicializar base de datos al cargar el módulo
 initializeDatabase().catch(console.error);
 
-export { handler as GET, handler as POST, handler as DELETE }; 
+// Manejador para peticiones POST del frontend
+async function handleFrontendRequest(request: Request) {
+  try {
+    console.log('🔧 [MCP] Procesando petición del frontend...');
+    
+    const body = await request.json();
+    console.log('📥 [MCP] Body recibido:', body);
+    
+    const { tool, args } = body;
+    
+    if (!tool) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Herramienta no especificada'
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    let result;
+    
+    switch (tool) {
+      case 'list_tasks':
+        result = await listTasks(args);
+        break;
+      case 'create_task':
+        result = await createTask(args);
+        break;
+      case 'update_task':
+        result = await updateTask(args);
+        break;
+      case 'delete_task':
+        result = await deleteTask(args);
+        break;
+      default:
+        return new Response(JSON.stringify({
+          success: false,
+          message: `Herramienta '${tool}' no reconocida`
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+    }
+    
+    console.log('✅ [MCP] Resultado procesado:', result);
+    
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+  } catch (error: any) {
+    console.error('❌ [MCP] Error procesando petición del frontend:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      message: error.message || 'Error interno del servidor'
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// Exportar manejadores para diferentes métodos HTTP
+export async function POST(request: Request) {
+  // Verificar si es una petición del frontend o del adaptador MCP
+  const contentType = request.headers.get('content-type');
+  
+  if (contentType?.includes('application/json')) {
+    // Es una petición del frontend
+    return handleFrontendRequest(request);
+  } else {
+    // Es una petición del adaptador MCP
+    return handler(request);
+  }
+}
+
+export { handler as GET, handler as DELETE }; 
