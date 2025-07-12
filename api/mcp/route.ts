@@ -315,5 +315,68 @@ const handler = createMcpHandler(
 // Inicializar base de datos al cargar el módulo
 initializeDatabase().catch(console.error);
 
-// Exportar el handler MCP
-export { handler as GET, handler as POST, handler as DELETE }; 
+// Función para manejar peticiones HTTP normales
+async function handleHttpRequest(request: any) {
+  try {
+    const body = await request.json();
+    const { tool, args } = body;
+    
+    console.log('🔧 [MCP-HTTP] Petición HTTP recibida:', { tool, args });
+    
+    let result;
+    switch (tool) {
+      case 'list_tasks':
+        result = await listTasks(args);
+        break;
+      case 'create_task':
+        result = await createTask(args);
+        break;
+      case 'update_task':
+        result = await updateTask(args);
+        break;
+      case 'delete_task':
+        result = await deleteTask(args);
+        break;
+      default:
+        return new Response(
+          JSON.stringify({ success: false, message: 'Herramienta no encontrada' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+    }
+    
+    return new Response(
+      JSON.stringify(result),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  } catch (error: any) {
+    console.error('❌ [MCP-HTTP] Error en petición HTTP:', error);
+    return new Response(
+      JSON.stringify({ success: false, message: error.message }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
+// Función para manejar peticiones HTTP
+export async function POST(request: any) {
+  // Verificar si es una petición MCP o HTTP normal
+  try {
+    const contentType = request.headers.get('content-type');
+    console.log('🔧 [MCP] Content-Type:', contentType);
+    
+    if (contentType && contentType.includes('application/json')) {
+      // Es una petición HTTP normal
+      return handleHttpRequest(request);
+    } else {
+      // Es una petición MCP
+      return handler(request);
+    }
+  } catch (error) {
+    console.error('❌ [MCP] Error determinando tipo de petición:', error);
+    // Por defecto, intentar como HTTP normal
+    return handleHttpRequest(request);
+  }
+}
+
+// Exportar también GET y DELETE para compatibilidad
+export { handler as GET, handler as DELETE }; 
