@@ -17,13 +17,26 @@ async function initializeDatabase() {
       JWT_SECRET: process.env.JWT_SECRET ? '***' : 'supersecret'
     });
     
-    db = await mysql.createConnection({
+    // Usar pool de conexiones en lugar de conexión única
+    db = mysql.createPool({
       host: process.env.DB_HOST || 'localhost',
       user: process.env.DB_USER || 'root',
       password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_NAME || 'taskbot_db'
+      database: process.env.DB_NAME || 'taskbot_db',
+      // Configuraciones para optimizar en Vercel
+      connectionLimit: 10,
+      // Configuraciones adicionales para estabilidad
+      waitForConnections: true,
+      queueLimit: 0
     });
+    
     JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
+    
+    // Probar la conexión
+    const connection = await db.getConnection();
+    await connection.ping();
+    connection.release();
+    
     console.log('✅ [MCP] Base de datos conectada exitosamente');
   } catch (error) {
     console.error('❌ [MCP] Error conectando a la base de datos:', error);
@@ -35,7 +48,7 @@ async function initializeDatabase() {
 async function verifyToken(token: string): Promise<any> {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
-    const [users] = await db.query("SELECT * FROM users WHERE id = ?", [decoded.id]) as [any[], any];
+    const [users] = await executeQuery("SELECT * FROM users WHERE id = ?", [decoded.id]) as [any[], any];
     if (users.length === 0) {
       throw new Error("Usuario no encontrado");
     }
@@ -45,6 +58,30 @@ async function verifyToken(token: string): Promise<any> {
   }
 }
 
+// Función para ejecutar queries con reintentos
+async function executeQuery(query: string, params: any[] = []): Promise<any> {
+  const maxRetries = 3;
+  let lastError: any;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🔧 [MCP] Intento ${attempt} de ejecutar query`);
+      const result = await db.query(query, params);
+      return result;
+    } catch (error: any) {
+      lastError = error;
+      console.error(`❌ [MCP] Error en intento ${attempt}:`, error.message);
+      
+      if (attempt < maxRetries) {
+        // Esperar un poco antes del siguiente intento
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+  }
+  
+  throw lastError;
+}
+
 // Implementar las funciones de las herramientas
 async function listTasks(args: { token: string }) {
   try {
@@ -52,7 +89,7 @@ async function listTasks(args: { token: string }) {
     const user = await verifyToken(args.token);
     console.log('🔧 [MCP] listTasks: Usuario autenticado:', user.id);
     
-    const [rows] = await db.query("SELECT * FROM tasks WHERE user_id = ?", [user.id]) as [any[], any];
+    const [rows] = await executeQuery("SELECT * FROM tasks WHERE user_id = ?", [user.id]) as [any[], any];
     console.log('🔧 [MCP] listTasks: Tareas encontradas:', rows.length);
     
     return {
@@ -93,12 +130,12 @@ async function createTask(args: {
       is_ai_managed: true
     };
     
-    const [result] = await db.query(
+    const [result] = await executeQuery(
       "INSERT INTO tasks (user_id, created_by, name, description, priority, due_date, status, is_ai_managed) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [taskData.user_id, taskData.created_by, taskData.name, taskData.description, taskData.priority, taskData.due_date, taskData.status, taskData.is_ai_managed]
     );
     
-    const [newTask] = await db.query("SELECT * FROM tasks WHERE id = ?", [result.insertId]) as [any[], any];
+    const [newTask] = await executeQuery("SELECT * FROM tasks WHERE id = ?", [result.insertId]) as [any[], any];
     
     return {
       success: true,
@@ -127,7 +164,7 @@ async function updateTask(args: {
     const user = await verifyToken(args.token);
     
     // Verificar que la tarea existe y pertenece al usuario
-    const [existingTask] = await db.query("SELECT * FROM tasks WHERE id = ? AND user_id = ?", [args.task_id, user.id]) as [any[], any];
+    const [existingTask] = await executeQuery("SELECT * FROM tasks WHERE id = ? AND user_id = ?", [args.task_id, user.id]) as [any[], any];
     if (existingTask.length === 0) {
       return {
         success: false,
@@ -154,9 +191,9 @@ async function updateTask(args: {
     }
     
     values.push(args.task_id);
-    await db.query(`UPDATE tasks SET ${updateFields.join(", ")} WHERE id = ? AND user_id = ?`, [...values, user.id]);
+    await executeQuery(`UPDATE tasks SET ${updateFields.join(", ")} WHERE id = ? AND user_id = ?`, [...values, user.id]);
     
-    const [updatedTask] = await db.query("SELECT * FROM tasks WHERE id = ? AND user_id = ?", [args.task_id, user.id]) as [any[], any];
+    const [updatedTask] = await executeQuery("SELECT * FROM tasks WHERE id = ? AND user_id = ?", [args.task_id, user.id]) as [any[], any];
     
     return {
       success: true,
@@ -177,7 +214,7 @@ async function deleteTask(args: { token: string, task_id: number }) {
     const user = await verifyToken(args.token);
     
     // Verificar que la tarea existe y pertenece al usuario
-    const [existingTask] = await db.query("SELECT * FROM tasks WHERE id = ? AND user_id = ?", [args.task_id, user.id]) as [any[], any];
+    const [existingTask] = await executeQuery("SELECT * FROM tasks WHERE id = ? AND user_id = ?", [args.task_id, user.id]) as [any[], any];
     if (existingTask.length === 0) {
       return {
         success: false,
@@ -186,7 +223,7 @@ async function deleteTask(args: { token: string, task_id: number }) {
       };
     }
     
-    await db.query("DELETE FROM tasks WHERE id = ? AND user_id = ?", [args.task_id, user.id]);
+    await executeQuery("DELETE FROM tasks WHERE id = ? AND user_id = ?", [args.task_id, user.id]);
     
     return {
       success: true,
