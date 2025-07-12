@@ -36,10 +36,12 @@ export default function taskRoutes(db: any, JWT_SECRET: string) {
         });
     }
 
-    // Obtener todas las tareas
+    // Obtener todas las tareas del usuario autenticado
     router.get("/task", authenticateToken, async (req: Request, res: Response) => {
         try {
-            const [rows] = await db.query("SELECT * FROM tasks") as [any[], any];
+            const userId = (req as any).user.id;
+            console.log('Obteniendo tareas para usuario:', userId);
+            const [rows] = await db.query("SELECT * FROM tasks WHERE user_id = ?", [userId]) as [any[], any];
             res.json({ success: true, message: "Tareas obtenidas", data: rows });
         } catch (err) {
             console.log("Error al obtener tareas:", err);
@@ -47,12 +49,16 @@ export default function taskRoutes(db: any, JWT_SECRET: string) {
         }
     });
 
-    // Obtener tarea por ID
+    // Obtener tarea por ID (solo si pertenece al usuario autenticado)
     router.get("/task/:id", authenticateToken, async (req: Request, res: Response) => {
         try {
-            const [rows] = await db.query("SELECT * FROM tasks WHERE id = ?", [req.params.id]) as [any[], any];
+            const userId = (req as any).user.id;
+            const taskId = req.params.id;
+            console.log('Obteniendo tarea ID:', taskId, 'para usuario:', userId);
+            
+            const [rows] = await db.query("SELECT * FROM tasks WHERE id = ? AND user_id = ?", [taskId, userId]) as [any[], any];
             if (rows.length === 0) {
-                res.status(404).json({ success: false, message: "Tarea no encontrada", data: null });
+                res.status(404).json({ success: false, message: "Tarea no encontrada o no tienes permisos para acceder a ella", data: null });
                 return;
             }
             res.json({ success: true, message: "Tarea obtenida", data: rows[0] });
@@ -82,10 +88,20 @@ export default function taskRoutes(db: any, JWT_SECRET: string) {
         }
     });
 
-    // Actualizar tarea
+    // Actualizar tarea (solo si pertenece al usuario autenticado)
     router.put("/task/:id", authenticateToken, async (req: Request, res: Response) => {
         const { name, description, priority, due_date, status, is_ai_managed } = req.body;
+        const userId = (req as any).user.id;
+        const taskId = req.params.id;
+        
         try {
+            // Verificar que la tarea existe y pertenece al usuario
+            const [existingTask] = await db.query("SELECT * FROM tasks WHERE id = ? AND user_id = ?", [taskId, userId]) as [any[], any];
+            if (existingTask.length === 0) {
+                res.status(404).json({ success: false, message: "Tarea no encontrada o no tienes permisos para modificarla", data: null });
+                return;
+            }
+            
             let updateFields = [];
             let values = [];
             if (name) { updateFields.push("name = ?"); values.push(name); }
@@ -98,9 +114,9 @@ export default function taskRoutes(db: any, JWT_SECRET: string) {
                 res.status(400).json({ success: false, message: "Nada para actualizar", data: null });
                 return;
             }
-            values.push(req.params.id);
-            await db.query(`UPDATE tasks SET ${updateFields.join(", ")} WHERE id = ?`, values);
-            const [rows] = await db.query("SELECT * FROM tasks WHERE id = ?", [req.params.id]) as [any[], any];
+            values.push(taskId);
+            await db.query(`UPDATE tasks SET ${updateFields.join(", ")} WHERE id = ? AND user_id = ?`, [...values, userId]);
+            const [rows] = await db.query("SELECT * FROM tasks WHERE id = ? AND user_id = ?", [taskId, userId]) as [any[], any];
             res.json({ success: true, message: "Tarea actualizada", data: rows[0] });
         } catch (err) {
             console.log("Error al actualizar tarea:", err);
@@ -108,10 +124,20 @@ export default function taskRoutes(db: any, JWT_SECRET: string) {
         }
     });
 
-    // Eliminar tarea
+    // Eliminar tarea (solo si pertenece al usuario autenticado)
     router.delete("/task/:id", authenticateToken, async (req: Request, res: Response) => {
+        const userId = (req as any).user.id;
+        const taskId = req.params.id;
+        
         try {
-            await db.query("DELETE FROM tasks WHERE id = ?", [req.params.id]);
+            // Verificar que la tarea existe y pertenece al usuario
+            const [existingTask] = await db.query("SELECT * FROM tasks WHERE id = ? AND user_id = ?", [taskId, userId]) as [any[], any];
+            if (existingTask.length === 0) {
+                res.status(404).json({ success: false, message: "Tarea no encontrada o no tienes permisos para eliminarla", data: null });
+                return;
+            }
+            
+            await db.query("DELETE FROM tasks WHERE id = ? AND user_id = ?", [taskId, userId]);
             res.json({ success: true, message: "Tarea eliminada", data: null });
         } catch (err) {
             console.log("Error al eliminar tarea:", err);
