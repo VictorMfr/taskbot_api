@@ -1,6 +1,5 @@
 {
     "version": 2,
-    "buildCommand": "npm run build",
     "builds": [
         {
             "src": "index.ts",
@@ -20,16 +19,5 @@
             "src": "/api/(.*)",
             "dest": "index.ts"
         }
-    ],
-    "functions": {
-        "index.ts": {
-            "runtime": "nodejs18.x"
-        },
-        "api/mcp/route.ts": {
-            "runtime": "nodejs18.x"
-        }
-    },
-    "env": {
-        "NODE_ENV": "production"
-    }
+    ]
 }
