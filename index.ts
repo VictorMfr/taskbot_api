@@ -7,7 +7,6 @@ import type { Request, Response, NextFunction } from "express";
 import userRoutes from "./routes/user";
 import taskRoutes from "./routes/task";
 import subtaskRoutes from "./routes/subtask";
-
 const app = express();
 app.use(bodyParser.json());
 
