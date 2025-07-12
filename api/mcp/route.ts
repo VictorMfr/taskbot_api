@@ -1,4 +1,4 @@
-import { createMCPAdapter } from '@vercel/mcp-adapter';
+import { createMcpHandler } from '@vercel/mcp-adapter';
 import jwt from 'jsonwebtoken';
 import mysql from 'mysql2/promise';
 
@@ -9,6 +9,14 @@ let JWT_SECRET: string;
 // Inicializar la conexión a la base de datos
 async function initializeDatabase() {
   try {
+    console.log('🔧 [MCP] Inicializando conexión a base de datos...');
+    console.log('🔧 [MCP] Variables de entorno:', {
+      DB_HOST: process.env.DB_HOST || 'localhost',
+      DB_USER: process.env.DB_USER || 'root',
+      DB_NAME: process.env.DB_NAME || 'taskbot_db',
+      JWT_SECRET: process.env.JWT_SECRET ? '***' : 'your-secret-key'
+    });
+    
     db = await mysql.createConnection({
       host: process.env.DB_HOST || 'localhost',
       user: process.env.DB_USER || 'root',
@@ -16,9 +24,10 @@ async function initializeDatabase() {
       database: process.env.DB_NAME || 'taskbot_db'
     });
     JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-    console.log('✅ Base de datos MCP conectada');
+    console.log('✅ [MCP] Base de datos conectada exitosamente');
   } catch (error) {
-    console.error('❌ Error conectando a la base de datos MCP:', error);
+    console.error('❌ [MCP] Error conectando a la base de datos:', error);
+    throw error;
   }
 }
 
@@ -39,8 +48,12 @@ async function verifyToken(token: string): Promise<any> {
 // Implementar las funciones de las herramientas
 async function listTasks(args: { token: string }) {
   try {
+    console.log('🔧 [MCP] listTasks: Iniciando...');
     const user = await verifyToken(args.token);
+    console.log('🔧 [MCP] listTasks: Usuario autenticado:', user.id);
+    
     const [rows] = await db.query("SELECT * FROM tasks WHERE user_id = ?", [user.id]) as [any[], any];
+    console.log('🔧 [MCP] listTasks: Tareas encontradas:', rows.length);
     
     return {
       success: true,
@@ -49,6 +62,7 @@ async function listTasks(args: { token: string }) {
       count: rows.length
     };
   } catch (error: any) {
+    console.error('❌ [MCP] listTasks: Error:', error.message);
     return {
       success: false,
       message: error.message,
@@ -122,8 +136,8 @@ async function updateTask(args: {
       };
     }
     
-    let updateFields = [];
-    let values = [];
+    let updateFields: string[] = [];
+    let values: (string | number)[] = [];
     
     if (args.name) { updateFields.push("name = ?"); values.push(args.name); }
     if (args.description) { updateFields.push("description = ?"); values.push(args.description); }
@@ -189,7 +203,7 @@ async function deleteTask(args: { token: string, task_id: number }) {
 }
 
 // Crear el adaptador MCP de Vercel
-const handler = createMCPAdapter(
+const handler = createMcpHandler(
   (server) => {
     server.tool(
       'list_tasks',

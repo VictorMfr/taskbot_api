@@ -1,24 +1,35 @@
 {
     "version": 2,
+    "buildCommand": "npm run build",
     "builds": [
         {
             "src": "index.ts",
+            "use": "@vercel/node"
+        },
+        {
+            "src": "api/mcp/route.ts",
             "use": "@vercel/node"
         }
     ],
     "routes": [
         {
-            "src": "/api/(.*)",
-            "dest": "index.ts"
+            "src": "/api/mcp",
+            "dest": "/api/mcp/route.ts"
         },
         {
-            "src": "/mcp/(.*)",
-            "dest": "/api/mcp"
+            "src": "/api/(.*)",
+            "dest": "index.ts"
         }
     ],
     "functions": {
         "index.ts": {
             "runtime": "nodejs18.x"
+        },
+        "api/mcp/route.ts": {
+            "runtime": "nodejs18.x"
         }
+    },
+    "env": {
+        "NODE_ENV": "production"
     }
 }
