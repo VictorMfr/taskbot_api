@@ -126,7 +126,7 @@ async function createTask(args: {
       description: args.description || '',
       priority: args.priority || 'medium',
       due_date: args.due_date || null,
-      status: args.status || 'Pendiente',
+      status: args.status || 'pending',
       is_ai_managed: true
     };
     
@@ -315,4 +315,5 @@ const handler = createMcpHandler(
 // Inicializar base de datos al cargar el módulo
 initializeDatabase().catch(console.error);
 
+// Exportar el handler MCP
 export { handler as GET, handler as POST, handler as DELETE }; 

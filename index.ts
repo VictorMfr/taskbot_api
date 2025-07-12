@@ -7,6 +7,8 @@ import type { Request, Response, NextFunction } from "express";
 import userRoutes from "./routes/user";
 import taskRoutes from "./routes/task";
 import subtaskRoutes from "./routes/subtask";
+import mcpRoutes from "./routes/mcp";
+
 const app = express();
 app.use(bodyParser.json());
 
@@ -34,14 +36,14 @@ app.get("/", (req, res) => {
 app.use("/api", userRoutes(db, JWT_SECRET));
 app.use("/api", subtaskRoutes(db, JWT_SECRET)); // Rutas de subtareas primero (más específicas)
 app.use("/api", taskRoutes(db, JWT_SECRET)); // Rutas de tareas después (más generales)
+app.use("/api/mcp", mcpRoutes); // Nuevo endpoint MCP HTTP
 
 // Log para debuggear las rutas registradas
 console.log('🔧 [SERVER] Rutas registradas:');
 console.log('  - User routes: /register, /login, /auth');
 console.log('  - Subtask routes: /task/:taskId/subtask, /subtask/* (primero)');
 console.log('  - Task routes: /task/* (después)');
-
-
+console.log('  - MCP routes: /mcp/* (nuevo)');
 
 if (process.env.NODE_ENV !== "production") {
     app.listen(PORT, () => {
