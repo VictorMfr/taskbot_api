@@ -31,9 +31,9 @@ app.get("/", (req, res) => {
     res.send("Hello World");
 });
 
-app.use(userRoutes(db, JWT_SECRET));
-app.use(subtaskRoutes(db, JWT_SECRET)); // Rutas de subtareas primero (más específicas)
-app.use(taskRoutes(db, JWT_SECRET)); // Rutas de tareas después (más generales)
+app.use("/api", userRoutes(db, JWT_SECRET));
+app.use("/api", subtaskRoutes(db, JWT_SECRET)); // Rutas de subtareas primero (más específicas)
+app.use("/api", taskRoutes(db, JWT_SECRET)); // Rutas de tareas después (más generales)
 
 // Log para debuggear las rutas registradas
 console.log('🔧 [SERVER] Rutas registradas:');
