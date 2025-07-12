@@ -36,118 +36,6 @@ async function verifyToken(token: string): Promise<any> {
   }
 }
 
-// Definir las herramientas (tools) disponibles
-const tools = [
-  {
-    name: 'list_tasks',
-    description: 'Lista todas las tareas del usuario autenticado',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        token: {
-          type: 'string',
-          description: 'Token JWT del usuario'
-        }
-      },
-      required: ['token']
-    }
-  },
-  {
-    name: 'create_task',
-    description: 'Crea una nueva tarea para el usuario',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        token: {
-          type: 'string',
-          description: 'Token JWT del usuario'
-        },
-        name: {
-          type: 'string',
-          description: 'Nombre de la tarea'
-        },
-        description: {
-          type: 'string',
-          description: 'Descripción de la tarea'
-        },
-        priority: {
-          type: 'string',
-          description: 'Prioridad de la tarea (high, medium, low)',
-          enum: ['high', 'medium', 'low']
-        },
-        due_date: {
-          type: 'string',
-          description: 'Fecha límite de la tarea (YYYY-MM-DD HH:mm:ss)'
-        },
-        status: {
-          type: 'string',
-          description: 'Estado de la tarea',
-          enum: ['Pendiente', 'En progreso', 'Completado']
-        }
-      },
-      required: ['token', 'name']
-    }
-  },
-  {
-    name: 'update_task',
-    description: 'Actualiza una tarea existente',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        token: {
-          type: 'string',
-          description: 'Token JWT del usuario'
-        },
-        task_id: {
-          type: 'number',
-          description: 'ID de la tarea a actualizar'
-        },
-        name: {
-          type: 'string',
-          description: 'Nuevo nombre de la tarea'
-        },
-        description: {
-          type: 'string',
-          description: 'Nueva descripción de la tarea'
-        },
-        priority: {
-          type: 'string',
-          description: 'Nueva prioridad de la tarea (high, medium, low)',
-          enum: ['high', 'medium', 'low']
-        },
-        due_date: {
-          type: 'string',
-          description: 'Nueva fecha límite de la tarea (YYYY-MM-DD HH:mm:ss)'
-        },
-        status: {
-          type: 'string',
-          description: 'Nuevo estado de la tarea',
-          enum: ['Pendiente', 'En progreso', 'Completado']
-        }
-      },
-      required: ['token', 'task_id']
-    }
-  },
-  {
-    name: 'delete_task',
-    description: 'Elimina una tarea existente',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        token: {
-          type: 'string',
-          description: 'Token JWT del usuario'
-        },
-        task_id: {
-          type: 'number',
-          description: 'ID de la tarea a eliminar'
-        }
-      },
-      required: ['token', 'task_id']
-    }
-  }
-];
-
 // Implementar las funciones de las herramientas
 async function listTasks(args: { token: string }) {
   try {
@@ -301,25 +189,79 @@ async function deleteTask(args: { token: string, task_id: number }) {
 }
 
 // Crear el adaptador MCP de Vercel
-const adapter = createMCPAdapter({
-  name: 'taskbot-mcp-server',
-  version: '1.0.0',
-  tools,
-  handlers: {
-    list_tasks: listTasks,
-    create_task: createTask,
-    update_task: updateTask,
-    delete_task: deleteTask
-  }
-});
+const handler = createMCPAdapter(
+  (server) => {
+    server.tool(
+      'list_tasks',
+      'Lista todas las tareas del usuario autenticado',
+      { token: { type: 'string', description: 'Token JWT del usuario' } },
+      async ({ token }) => {
+        const result = await listTasks({ token });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      },
+    );
 
-// Inicializar y exportar para Vercel
-async function initialize() {
-  await initializeDatabase();
-  console.log('🚀 Servidor MCP TaskBot iniciado en Vercel');
-}
+    server.tool(
+      'create_task',
+      'Crea una nueva tarea para el usuario',
+      { 
+        token: { type: 'string', description: 'Token JWT del usuario' },
+        name: { type: 'string', description: 'Nombre de la tarea' },
+        description: { type: 'string', description: 'Descripción de la tarea', optional: true },
+        priority: { type: 'string', description: 'Prioridad (high, medium, low)', optional: true },
+        due_date: { type: 'string', description: 'Fecha límite (YYYY-MM-DD HH:mm:ss)', optional: true },
+        status: { type: 'string', description: 'Estado (Pendiente, En progreso, Completado)', optional: true }
+      },
+      async ({ token, name, description, priority, due_date, status }) => {
+        const result = await createTask({ token, name, description, priority, due_date, status });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      },
+    );
 
-// Inicializar al cargar el módulo
-initialize().catch(console.error);
+    server.tool(
+      'update_task',
+      'Actualiza una tarea existente',
+      { 
+        token: { type: 'string', description: 'Token JWT del usuario' },
+        task_id: { type: 'number', description: 'ID de la tarea' },
+        name: { type: 'string', description: 'Nuevo nombre', optional: true },
+        description: { type: 'string', description: 'Nueva descripción', optional: true },
+        priority: { type: 'string', description: 'Nueva prioridad', optional: true },
+        due_date: { type: 'string', description: 'Nueva fecha límite', optional: true },
+        status: { type: 'string', description: 'Nuevo estado', optional: true }
+      },
+      async ({ token, task_id, name, description, priority, due_date, status }) => {
+        const result = await updateTask({ token, task_id, name, description, priority, due_date, status });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      },
+    );
 
-export default adapter; 
+    server.tool(
+      'delete_task',
+      'Elimina una tarea existente',
+      { 
+        token: { type: 'string', description: 'Token JWT del usuario' },
+        task_id: { type: 'number', description: 'ID de la tarea' }
+      },
+      async ({ token, task_id }) => {
+        const result = await deleteTask({ token, task_id });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      },
+    );
+  },
+  {},
+  { basePath: '/api' },
+);
+
+// Inicializar base de datos al cargar el módulo
+initializeDatabase().catch(console.error);
+
+export { handler as GET, handler as POST, handler as DELETE }; 
