@@ -95,7 +95,7 @@ export default function userRoutes(db: any, JWT_SECRET: string) {
     // Verificar token y obtener perfil del usuario (protegido)
     router.get("/auth", authenticateToken, async (req: Request, res: Response) => {
         try {
-            const [rows] = await db.query("SELECT id, username, email, user_type FROM users WHERE id = ?", [req.user.id]) as [any[], any];
+            const [rows] = await db.query("SELECT id, username, email, user_type FROM users WHERE id = ?", [(req as any).user.id]) as [any[], any];
             if (rows.length === 0) {
                 res.status(404).json({ success: false, message: "Usuario no encontrado", data: null });
                 return;
