@@ -1,14 +1,8 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  Tool,
-} from '@modelcontextprotocol/sdk/types.js';
+import { createMCPAdapter } from '@vercel/mcp-adapter';
 import jwt from 'jsonwebtoken';
 import mysql from 'mysql2/promise';
 
-// Configuración de la base de datos (importar desde el archivo existente)
+// Configuración de la base de datos
 let db: any;
 let JWT_SECRET: string;
 
@@ -42,8 +36,8 @@ async function verifyToken(token: string): Promise<any> {
   }
 }
 
-// Definir las herramientas (tools) disponibles para la IA
-const tools: Tool[] = [
+// Definir las herramientas (tools) disponibles
+const tools = [
   {
     name: 'list_tasks',
     description: 'Lista todas las tareas del usuario autenticado',
@@ -150,25 +144,6 @@ const tools: Tool[] = [
         }
       },
       required: ['token', 'task_id']
-    }
-  },
-  {
-    name: 'update_all_tasks',
-    description: 'Actualiza todas las tareas del usuario con un nuevo estado',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        token: {
-          type: 'string',
-          description: 'Token JWT del usuario'
-        },
-        status: {
-          type: 'string',
-          description: 'Nuevo estado para todas las tareas',
-          enum: ['Pendiente', 'En progreso', 'Completado']
-        }
-      },
-      required: ['token', 'status']
     }
   }
 ];
@@ -325,103 +300,26 @@ async function deleteTask(args: { token: string, task_id: number }) {
   }
 }
 
-async function updateAllTasks(args: { token: string, status: string }) {
-  try {
-    const user = await verifyToken(args.token);
-    
-    const [result] = await db.query("UPDATE tasks SET status = ? WHERE user_id = ?", [args.status, user.id]) as [any[], any];
-    
-    return {
-      success: true,
-      message: `Todas las tareas han sido actualizadas a estado "${args.status}"`,
-      data: {
-        affectedRows: (result as any).affectedRows || 0
-      }
-    };
-  } catch (error: any) {
-    return {
-      success: false,
-      message: error.message,
-      data: null
-    };
-  }
-}
-
-// Crear el servidor MCP
-const server = new Server(
-  {
-    name: 'taskbot-mcp-server',
-    version: '1.0.0',
-  }
-);
-
-// Registrar las herramientas
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
-    tools,
-  };
-});
-
-server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
-  const { name, arguments: args } = request.params;
-  
-  console.log(`[MCP] Llamando herramienta: ${name}`, args);
-  
-  try {
-    let result;
-    
-    switch (name) {
-      case 'list_tasks':
-        result = await listTasks(args as { token: string });
-        break;
-      case 'create_task':
-        result = await createTask(args as any);
-        break;
-      case 'update_task':
-        result = await updateTask(args as any);
-        break;
-      case 'delete_task':
-        result = await deleteTask(args as { token: string, task_id: number });
-        break;
-      case 'update_all_tasks':
-        result = await updateAllTasks(args as { token: string, status: string });
-        break;
-      default:
-        throw new Error(`Herramienta no encontrada: ${name}`);
-    }
-    
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(result, null, 2)
-        }
-      ]
-    };
-  } catch (error: any) {
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-            success: false,
-            message: error.message,
-            data: null
-          }, null, 2)
-        }
-      ]
-    };
+// Crear el adaptador MCP de Vercel
+const adapter = createMCPAdapter({
+  name: 'taskbot-mcp-server',
+  version: '1.0.0',
+  tools,
+  handlers: {
+    list_tasks: listTasks,
+    create_task: createTask,
+    update_task: updateTask,
+    delete_task: deleteTask
   }
 });
 
-// Inicializar y ejecutar el servidor
-async function main() {
+// Inicializar y exportar para Vercel
+async function initialize() {
   await initializeDatabase();
-  
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  
-  console.log('🚀 Servidor MCP TaskBot iniciado');
+  console.log('🚀 Servidor MCP TaskBot iniciado en Vercel');
 }
 
-main().catch(console.error); 
+// Inicializar al cargar el módulo
+initialize().catch(console.error);
+
+export default adapter; 

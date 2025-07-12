@@ -2,14 +2,30 @@
     "version": 2,
     "builds": [
         {
-            "src": "mcp-server.ts",
+            "src": "index.ts",
+            "use": "@vercel/node"
+        },
+        {
+            "src": "mcp-server-vercel.ts",
             "use": "@vercel/node"
         }
     ],
     "routes": [
         {
-            "src": "/(.*)",
-            "dest": "mcp-server.ts"
+            "src": "/api/(.*)",
+            "dest": "index.ts"
+        },
+        {
+            "src": "/mcp/(.*)",
+            "dest": "mcp-server-vercel.ts"
         }
-    ]
+    ],
+    "functions": {
+        "index.ts": {
+            "runtime": "nodejs18.x"
+        },
+        "mcp-server-vercel.ts": {
+            "runtime": "nodejs18.x"
+        }
+    }
 }
