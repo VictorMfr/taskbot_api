@@ -1,45 +1,15 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import mysql from 'mysql2/promise';
+import db from '../db';
 
 const router = express.Router();
 
-// Configuración de la base de datos
-let db: any;
-let JWT_SECRET: string;
-
-// Inicializar la conexión a la base de datos
-async function initializeDatabase() {
-  try {
-    console.log('🔧 [MCP-HTTP] Inicializando conexión a base de datos...');
-    
-    db = mysql.createPool({
-      host: process.env.DB_HOST || 'localhost',
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_NAME || 'taskbot_db',
-      connectionLimit: 10,
-      waitForConnections: true,
-      queueLimit: 0
-    });
-    
-    JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
-    
-    const connection = await db.getConnection();
-    await connection.ping();
-    connection.release();
-    
-    console.log('✅ [MCP-HTTP] Base de datos conectada exitosamente');
-  } catch (error) {
-    console.error('❌ [MCP-HTTP] Error conectando a la base de datos:', error);
-    throw error;
-  }
-}
+// Pool de conexión importado desde db.ts
 
 // Función para verificar token JWT
 async function verifyToken(token: string): Promise<any> {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecret') as any;
     const [users] = await executeQuery("SELECT * FROM users WHERE id = ?", [decoded.id]) as [any[], any];
     if (users.length === 0) {
       throw new Error("Usuario no encontrado");
@@ -267,6 +237,6 @@ router.post('/', async (req, res) => {
 });
 
 // Inicializar base de datos
-initializeDatabase().catch(console.error);
+
 
 export default router; 

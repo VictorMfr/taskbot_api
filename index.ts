@@ -1,5 +1,5 @@
 import express from "express";
-import mysql from "mysql2/promise";
+import db from "./db";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import bodyParser from "body-parser";
@@ -21,13 +21,7 @@ app.use((req, res, next) => {
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
 
-// Configuración de conexión MySQL
-const db = mysql.createPool({
-    host: process.env.DB_HOST || "localhost",
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME || "taskbot",
-});
+// Pool de conexión importado desde db.ts
 
 app.get("/", (req, res) => {
     res.send("Hello World");
