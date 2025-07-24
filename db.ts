@@ -5,7 +5,7 @@ const db = mysql.createPool({
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
   database: process.env.DB_NAME || "taskbot_db",
-  connectionLimit: 2,
+  connectionLimit: 1,
   waitForConnections: true,
   queueLimit: 0
 });

@@ -9,8 +9,32 @@ import taskRoutes from "./routes/task";
 import subtaskRoutes from "./routes/subtask";
 import mcpRoutes from "./routes/mcp";
 
+
 const app = express();
 app.use(bodyParser.json());
+
+// Middleware de cola global para procesar solo una petición a la vez
+let processing = false;
+const queue: Array<() => void> = [];
+
+app.use((req, res, next) => {
+    const proceed = () => {
+        processing = true;
+        res.on('finish', () => {
+            processing = false;
+            if (queue.length > 0) {
+                const nextReq = queue.shift();
+                if (nextReq) nextReq();
+            }
+        });
+        next();
+    };
+    if (processing) {
+        queue.push(proceed);
+    } else {
+        proceed();
+    }
+});
 
 // Middleware para loggear todas las peticiones
 app.use((req, res, next) => {
