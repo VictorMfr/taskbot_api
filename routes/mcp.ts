@@ -16,6 +16,7 @@ async function verifyToken(token: string): Promise<any> {
     }
     return users[0];
   } catch (error) {
+    console.error('❌ [MCP-HTTP] Error al verificar token:', error.message);
     throw new Error("Token inválido");
   }
 }
