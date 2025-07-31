@@ -1,8 +1,30 @@
 import { createMcpHandler } from '@vercel/mcp-adapter';
+import { experimental_withMcpAuth } from '@vercel/mcp-adapter';
 import jwt from 'jsonwebtoken';
 import db from '../../db';
+import { z } from 'zod';
 
-// Pool de conexión importado desde db.ts
+// Esquemas de validación con Zod
+const CreateTaskSchema = z.object({
+  name: z.string().min(1, "El nombre es requerido"),
+  description: z.string().optional(),
+  priority: z.enum(['low', 'medium', 'high']).optional().default('medium'),
+  due_date: z.string().datetime().optional(),
+  status: z.enum(['pending', 'completed']).optional().default('pending'),
+});
+
+const UpdateTaskSchema = z.object({
+  task_id: z.number().int().positive("ID de tarea inválido"),
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  priority: z.enum(['low', 'medium', 'high']).optional(),
+  due_date: z.string().datetime().optional(),
+  status: z.enum(['pending', 'completed']).optional(),
+});
+
+const DeleteTaskSchema = z.object({
+  task_id: z.number().int().positive("ID de tarea inválido"),
+});
 
 // Función para verificar token JWT
 async function verifyToken(token: string): Promise<any> {
@@ -43,14 +65,14 @@ async function executeQuery(query: string, params: any[] = []): Promise<any> {
 }
 
 // Implementar las funciones de las herramientas
-async function listTasks(args: { token: string }) {
+async function listTasks(args: { token: string }, extra?: any) {
   try {
-    console.log('🔧 [MCP] listTasks: Iniciando...');
-    const user = await verifyToken(args.token);
-    console.log('🔧 [MCP] listTasks: Usuario autenticado:', user.id);
+    // Usar el token del contexto de autorización MCP si está disponible
+    const user = extra?.authInfo ? 
+      { id: extra.authInfo.extra?.userId } : 
+      await verifyToken(args.token);
     
     const [rows] = await executeQuery("SELECT * FROM tasks WHERE user_id = ?", [user.id]) as [any[], any];
-    console.log('🔧 [MCP] listTasks: Tareas encontradas:', rows.length);
     
     return {
       success: true,
@@ -75,9 +97,12 @@ async function createTask(args: {
   priority?: string, 
   due_date?: string, 
   status?: string 
-}) {
+}, extra?: any) {
   try {
-    const user = await verifyToken(args.token);
+    // Usar el token del contexto de autorización MCP si está disponible
+    const user = extra?.authInfo ? 
+      { id: extra.authInfo.extra?.userId } : 
+      await verifyToken(args.token);
     
     const taskData = {
       user_id: user.id,
@@ -119,9 +144,12 @@ async function updateTask(args: {
   priority?: string, 
   due_date?: string, 
   status?: string 
-}) {
+}, extra?: any) {
   try {
-    const user = await verifyToken(args.token);
+    // Usar el token del contexto de autorización MCP si está disponible
+    const user = extra?.authInfo ? 
+      { id: extra.authInfo.extra?.userId } : 
+      await verifyToken(args.token);
     
     // Verificar que la tarea existe y pertenece al usuario
     const [existingTask] = await executeQuery("SELECT * FROM tasks WHERE id = ? AND user_id = ?", [args.task_id, user.id]) as [any[], any];
@@ -169,9 +197,12 @@ async function updateTask(args: {
   }
 }
 
-async function deleteTask(args: { token: string, task_id: number }) {
+async function deleteTask(args: { token: string, task_id: number }, extra?: any) {
   try {
-    const user = await verifyToken(args.token);
+    // Usar el token del contexto de autorización MCP si está disponible
+    const user = extra?.authInfo ? 
+      { id: extra.authInfo.extra?.userId } : 
+      await verifyToken(args.token);
     
     // Verificar que la tarea existe y pertenece al usuario
     const [existingTask] = await executeQuery("SELECT * FROM tasks WHERE id = ? AND user_id = ?", [args.task_id, user.id]) as [any[], any];
@@ -199,15 +230,15 @@ async function deleteTask(args: { token: string, task_id: number }) {
   }
 }
 
-// Crear el adaptador MCP de Vercel
+// Crear el adaptador MCP de Vercel con validación Zod
 const handler = createMcpHandler(
   (server) => {
     server.tool(
       'list_tasks',
       'Lista todas las tareas del usuario autenticado',
-      { token: { type: 'string', description: 'Token JWT del usuario' } },
-      async ({ token }) => {
-        const result = await listTasks({ token });
+      {}, // Sin parámetros, la autenticación se maneja automáticamente
+      async (args, extra) => {
+        const result = await listTasks({ token: '' }, extra);
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };
@@ -217,16 +248,22 @@ const handler = createMcpHandler(
     server.tool(
       'create_task',
       'Crea una nueva tarea para el usuario',
-      { 
-        token: { type: 'string', description: 'Token JWT del usuario' },
-        name: { type: 'string', description: 'Nombre de la tarea' },
-        description: { type: 'string', description: 'Descripción de la tarea', optional: true },
-        priority: { type: 'string', description: 'Prioridad (high, medium, low)', optional: true },
-        due_date: { type: 'string', description: 'Fecha límite (YYYY-MM-DD HH:mm:ss)', optional: true },
-        status: { type: 'string', description: 'Estado (Pendiente, En progreso, Completado)', optional: true }
+      {
+        name: z.string().min(1, "El nombre es requerido"),
+        description: z.string().optional(),
+        priority: z.enum(['low', 'medium', 'high']).optional().default('medium'),
+        due_date: z.string().datetime().optional(),
+        status: z.enum(['pending', 'completed']).optional().default('pending'),
       },
-      async ({ token, name, description, priority, due_date, status }) => {
-        const result = await createTask({ token, name, description, priority, due_date, status });
+      async (args, extra) => {
+        const result = await createTask({ 
+          token: '', 
+          name: args.name,
+          description: args.description,
+          priority: args.priority,
+          due_date: args.due_date,
+          status: args.status
+        }, extra);
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };
@@ -236,17 +273,24 @@ const handler = createMcpHandler(
     server.tool(
       'update_task',
       'Actualiza una tarea existente',
-      { 
-        token: { type: 'string', description: 'Token JWT del usuario' },
-        task_id: { type: 'number', description: 'ID de la tarea' },
-        name: { type: 'string', description: 'Nuevo nombre', optional: true },
-        description: { type: 'string', description: 'Nueva descripción', optional: true },
-        priority: { type: 'string', description: 'Nueva prioridad', optional: true },
-        due_date: { type: 'string', description: 'Nueva fecha límite', optional: true },
-        status: { type: 'string', description: 'Nuevo estado', optional: true }
+      {
+        task_id: z.number().int().positive("ID de tarea inválido"),
+        name: z.string().min(1).optional(),
+        description: z.string().optional(),
+        priority: z.enum(['low', 'medium', 'high']).optional(),
+        due_date: z.string().datetime().optional(),
+        status: z.enum(['pending', 'completed']).optional(),
       },
-      async ({ token, task_id, name, description, priority, due_date, status }) => {
-        const result = await updateTask({ token, task_id, name, description, priority, due_date, status });
+      async (args, extra) => {
+        const result = await updateTask({ 
+          token: '', 
+          task_id: args.task_id,
+          name: args.name,
+          description: args.description,
+          priority: args.priority,
+          due_date: args.due_date,
+          status: args.status
+        }, extra);
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };
@@ -256,12 +300,14 @@ const handler = createMcpHandler(
     server.tool(
       'delete_task',
       'Elimina una tarea existente',
-      { 
-        token: { type: 'string', description: 'Token JWT del usuario' },
-        task_id: { type: 'number', description: 'ID de la tarea' }
+      {
+        task_id: z.number().int().positive("ID de tarea inválido"),
       },
-      async ({ token, task_id }) => {
-        const result = await deleteTask({ token, task_id });
+      async (args, extra) => {
+        const result = await deleteTask({ 
+          token: '', 
+          task_id: args.task_id
+        }, extra);
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };
@@ -272,8 +318,36 @@ const handler = createMcpHandler(
   { basePath: '/api' },
 );
 
-// Inicializar base de datos al cargar el módulo
+// Función para verificar token Bearer
+const verifyBearerToken = async (req: Request, bearerToken?: string) => {
+  if (!bearerToken) return undefined;
 
+  try {
+    const decoded = jwt.verify(bearerToken, process.env.JWT_SECRET || 'supersecret') as any;
+    const [users] = await executeQuery("SELECT * FROM users WHERE id = ?", [decoded.id]) as [any[], any];
+    
+    if (users.length === 0) {
+      return undefined;
+    }
+
+    return {
+      token: bearerToken,
+      scopes: ["read:tasks", "write:tasks"],
+      clientId: decoded.id,
+      extra: {
+        userId: decoded.id,
+      },
+    };
+  } catch {
+    return undefined;
+  }
+};
+
+// Aplicar autorización MCP
+const authHandler = experimental_withMcpAuth(handler, verifyBearerToken, {
+  required: true,
+  requiredScopes: ["read:tasks"],
+});
 
 // Función para manejar peticiones HTTP normales
 async function handleHttpRequest(request: any) {
@@ -329,7 +403,7 @@ export async function POST(request: any) {
       return handleHttpRequest(request);
     } else {
       // Es una petición MCP
-      return handler(request);
+      return authHandler(request);
     }
   } catch (error) {
     console.error('❌ [MCP] Error determinando tipo de petición:', error);
@@ -339,4 +413,4 @@ export async function POST(request: any) {
 }
 
 // Exportar también GET y DELETE para compatibilidad
-export { handler as GET, handler as DELETE }; 
+export { authHandler as GET, authHandler as DELETE }; 
